@@ -137,8 +137,56 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (error) throw error;
 
-      // Create organization after successful signup
-      if (data.user) {
+      // For email confirmation flow, we don't create org immediately
+      // The organization will be created after email verification
+      if (data.user && !data.session) {
+        toast({
+          title: "Account created successfully!",
+          description: "Please check your email to verify your account. Your organization will be created after verification.",
+        });
+        return { error: null };
+      }
+
+      // If we have an immediate session (no email confirmation required)
+      if (data.user && data.session) {
+        await createUserOrganization(data.user.id, organizationName);
+        
+        toast({
+          title: "Account created successfully!",
+          description: "Welcome to AI Audit Pro!",
+        });
+      }
+
+      return { error: null };
+    } catch (error: any) {
+      // Handle specific RLS errors
+      if (error.message?.includes('row-level security policy')) {
+        toast({
+          title: "Account setup incomplete",
+          description: "Please verify your email and try again. If the problem persists, contact support.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Sign up failed",
+          description: error.message,
+          variant: "destructive",
+        });
+      }
+      return { error };
+    }
+  };
+
+  const createUserOrganization = async (userId: string, organizationName: string) => {
+    // Wait a moment to ensure the session is fully established
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    // Retry mechanism for organization creation
+    let attempts = 0;
+    const maxAttempts = 3;
+    
+    while (attempts < maxAttempts) {
+      try {
         const { data: orgData, error: orgError } = await supabase
           .from('organizations')
           .insert([{ name: organizationName }])
@@ -151,27 +199,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const { error: membershipError } = await supabase
           .from('memberships')
           .insert([{
-            user_id: data.user.id,
+            user_id: userId,
             organization_id: orgData.id,
             role: 'owner'
           }]);
 
         if (membershipError) throw membershipError;
-
-        toast({
-          title: "Account created successfully!",
-          description: "Please check your email to verify your account.",
-        });
+        
+        return; // Success, exit retry loop
+      } catch (error: any) {
+        attempts++;
+        if (attempts >= maxAttempts) {
+          throw error;
+        }
+        // Wait before retrying
+        await new Promise(resolve => setTimeout(resolve, 500 * attempts));
       }
-
-      return { error: null };
-    } catch (error: any) {
-      toast({
-        title: "Sign up failed",
-        description: error.message,
-        variant: "destructive",
-      });
-      return { error };
     }
   };
 
