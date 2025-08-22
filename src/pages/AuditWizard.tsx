@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { AuditProgress } from "@/components/AuditWizard/AuditProgress";
 import { ArrowLeft, ArrowRight, Save, CheckCircle, Circle } from "lucide-react";
+import { useRequireAuth } from "@/contexts/AuthContext";
 
 const auditSteps = [
   {
@@ -68,8 +69,21 @@ const auditSteps = [
 ];
 
 export default function AuditWizard() {
+  const { user, loading } = useRequireAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [steps, setSteps] = useState(auditSteps);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null; // useRequireAuth will redirect
+  }
 
   const handleNext = () => {
     if (currentStep < auditSteps.length) {

@@ -1,10 +1,19 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Brain, Menu, X } from "lucide-react";
+import { Brain, Menu, X, User, ChevronDown } from "lucide-react";
 import { useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { user, profile, organization, organizations, signOut, switchOrganization } = useAuth();
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
@@ -41,12 +50,58 @@ export function Header() {
 
           {/* Desktop CTAs */}
           <div className="hidden md:flex items-center gap-3">
-            <Button variant="ghost" size="sm">
-              Sign In
-            </Button>
-            <Button size="sm" className="bg-primary hover:bg-primary-dark">
-              Start Free Trial
-            </Button>
+            {user ? (
+              <div className="flex items-center gap-3">
+                {organization && organizations.length > 1 && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm" className="gap-2">
+                        {organization.name}
+                        <ChevronDown className="w-3 h-3" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {organizations.map((org) => (
+                        <DropdownMenuItem
+                          key={org.id}
+                          onClick={() => switchOrganization(org.id)}
+                          className={organization.id === org.id ? "bg-muted" : ""}
+                        >
+                          {org.name}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+                
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className="gap-2">
+                      <User className="w-4 h-4" />
+                      {profile?.first_name || 'Account'}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem disabled>
+                      {profile?.email}
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={signOut}>
+                      Sign Out
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            ) : (
+              <>
+                <Button variant="ghost" size="sm" onClick={() => window.location.href = '/auth'}>
+                  Sign In
+                </Button>
+                <Button size="sm" onClick={() => window.location.href = '/auth'}>
+                  Start Free Trial
+                </Button>
+              </>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -87,12 +142,44 @@ export function Header() {
               </a>
               <div className="px-4 pt-4 border-t border-border">
                 <div className="space-y-2">
-                  <Button variant="ghost" size="sm" className="w-full justify-start">
-                    Sign In
-                  </Button>
-                  <Button size="sm" className="w-full bg-primary hover:bg-primary-dark">
-                    Start Free Trial
-                  </Button>
+                  {user ? (
+                    <>
+                      <div className="text-sm text-muted-foreground px-2">
+                        {profile?.email}
+                      </div>
+                      {organization && (
+                        <div className="text-sm font-medium px-2">
+                          {organization.name}
+                        </div>
+                      )}
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="w-full justify-start"
+                        onClick={signOut}
+                      >
+                        Sign Out
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="w-full justify-start"
+                        onClick={() => window.location.href = '/auth'}
+                      >
+                        Sign In
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        className="w-full"
+                        onClick={() => window.location.href = '/auth'}
+                      >
+                        Start Free Trial
+                      </Button>
+                    </>
+                  )}
                 </div>
               </div>
             </nav>
