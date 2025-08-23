@@ -1,0 +1,3 @@
+# SPA routing fallback for Netlify and similar platforms
+# This ensures that all routes serve index.html and React Router handles client-side routing
+/* /index.html 200
