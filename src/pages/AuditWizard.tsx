@@ -1131,6 +1131,7 @@ export default function AuditWizard() {
         isOpen={showReportModal}
         onClose={() => setShowReportModal(false)}
         reportContent={reportContent}
+        isGenerating={isGenerating}
         auditId={auditId}
       />
       
