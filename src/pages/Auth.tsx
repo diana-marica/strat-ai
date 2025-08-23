@@ -9,8 +9,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useEffect } from 'react';
 
 export default function Auth() {
-  const { signIn, signUp, user, loading } = useAuth();
+  const { signIn, signUp, user, loading, resendConfirmation } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [showResendConfirmation, setShowResendConfirmation] = useState(false);
+  const [resendEmail, setResendEmail] = useState('');
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -36,7 +38,20 @@ export default function Auth() {
     e.preventDefault();
     setIsLoading(true);
     
-    await signIn(signInForm.email, signInForm.password);
+    const result = await signIn(signInForm.email, signInForm.password);
+    
+    // Show resend confirmation option if email not confirmed
+    if (result.error?.message?.includes('Email not confirmed')) {
+      setShowResendConfirmation(true);
+      setResendEmail(signInForm.email);
+    }
+    
+    setIsLoading(false);
+  };
+
+  const handleResendConfirmation = async () => {
+    setIsLoading(true);
+    await resendConfirmation(resendEmail);
     setIsLoading(false);
   };
 
@@ -135,6 +150,22 @@ export default function Auth() {
                     >
                       {isLoading ? 'Signing in...' : 'Sign In'}
                     </Button>
+
+                    {showResendConfirmation && (
+                      <div className="mt-4 p-4 bg-muted/50 rounded-lg">
+                        <p className="text-sm text-muted-foreground mb-2">
+                          Need to confirm your email? We can send you a new confirmation link.
+                        </p>
+                        <Button 
+                          onClick={handleResendConfirmation}
+                          variant="outline"
+                          className="w-full"
+                          disabled={isLoading}
+                        >
+                          {isLoading ? 'Sending...' : 'Resend Confirmation Email'}
+                        </Button>
+                      </div>
+                    )}
                   </form>
                 </CardContent>
               </Card>

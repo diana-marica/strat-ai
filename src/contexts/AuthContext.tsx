@@ -31,6 +31,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   switchOrganization: (organizationId: string) => Promise<void>;
+  resendConfirmation: (email: string) => Promise<{ error: any }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -239,8 +240,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       return { error: null };
     } catch (error: any) {
+      // Handle email confirmation errors specifically
+      if (error.message?.includes('Email not confirmed')) {
+        toast({
+          title: "Email not confirmed",
+          description: "Please check your email and click the confirmation link before signing in.",
+          variant: "destructive",
+        });
+      } else if (error.message?.includes('Invalid login credentials')) {
+        toast({
+          title: "Invalid credentials",
+          description: "Please check your email and password, or confirm your email first.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Sign in failed",
+          description: error.message,
+          variant: "destructive",
+        });
+      }
+      return { error };
+    }
+  };
+
+  const resendConfirmation = async (email: string) => {
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/`
+        }
+      });
+
+      if (error) throw error;
+
       toast({
-        title: "Sign in failed",
+        title: "Confirmation email sent",
+        description: "Please check your email for the confirmation link.",
+      });
+      
+      return { error: null };
+    } catch (error: any) {
+      toast({
+        title: "Failed to resend confirmation",
         description: error.message,
         variant: "destructive",
       });
@@ -283,6 +327,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signIn,
     signOut,
     switchOrganization,
+    resendConfirmation,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
