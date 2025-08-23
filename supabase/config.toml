@@ -2,3 +2,12 @@ project_id = "levudgwbzmiqvlldszfn"
 
 [functions.generate-audit-report]
 verify_jwt = true
+
+[functions.generate-pdf-report]
+verify_jwt = true
+
+[functions.audit-chat]
+verify_jwt = true
+
+[functions.form-assistant]
+verify_jwt = true

@@ -1,11 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { AuditProgress } from "@/components/AuditWizard/AuditProgress";
 import { AuditReportModal } from "@/components/AuditWizard/AuditReportModal";
-import { ArrowLeft, ArrowRight, Save, CheckCircle, Circle, Loader2 } from "lucide-react";
+import { FormAssistant } from "@/components/AuditWizard/FormAssistant";
+import { ArrowLeft, ArrowRight, Save, CheckCircle, Circle, Loader2, HelpCircle } from "lucide-react";
 import { useRequireAuth } from "@/contexts/AuthContext";
 import { useAuditData } from "@/hooks/useAuditData";
+import { useAutoSave } from "@/hooks/useAutoSave";
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 const auditSteps = [
   {
@@ -74,9 +78,57 @@ export default function AuditWizard() {
   const { user, loading } = useRequireAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [steps, setSteps] = useState(auditSteps);
-  const { responses, updateResponse, generateReport, isGenerating } = useAuditData();
+  const { responses, updateResponse, generateReport, isGenerating, auditId } = useAuditData();
   const [reportContent, setReportContent] = useState<string | null>(null);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [showFormAssistant, setShowFormAssistant] = useState(false);
+  const [selectedText, setSelectedText] = useState<string>('');
+  const [isAutoSaving, setIsAutoSaving] = useState(false);
+
+  // Auto-save functionality
+  const saveAuditData = async (data: any) => {
+    if (!user || Object.keys(data).length === 0) return;
+    
+    setIsAutoSaving(true);
+    try {
+      // Create or update audit draft
+      if (auditId) {
+        const { error } = await supabase
+          .from('audits')
+          .update({ responses: data, updated_at: new Date().toISOString() })
+          .eq('id', auditId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('audits')
+          .insert({
+            user_id: user.id,
+            responses: data,
+            status: 'draft'
+          });
+        if (error) throw error;
+      }
+    } catch (error) {
+      console.error('Auto-save failed:', error);
+    } finally {
+      setIsAutoSaving(false);
+    }
+  };
+
+  useAutoSave(responses, saveAuditData, 3000);
+
+  // Handle text selection for AI assistant
+  useEffect(() => {
+    const handleSelection = () => {
+      const selection = window.getSelection();
+      if (selection && selection.toString().trim().length > 5) {
+        setSelectedText(selection.toString().trim());
+      }
+    };
+
+    document.addEventListener('mouseup', handleSelection);
+    return () => document.removeEventListener('mouseup', handleSelection);
+  }, []);
 
   if (loading) {
     return (
@@ -260,8 +312,12 @@ export default function AuditWizard() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-2">Implementation Stage</label>
-                  <select className="w-full p-3 border border-border rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                    <option>Select stage...</option>
+                  <select 
+                    className="w-full p-3 border border-border rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    value={responses[2]?.implementationStage || ''}
+                    onChange={(e) => updateResponse(2, 'implementationStage', e.target.value)}
+                  >
+                    <option value="">Select stage...</option>
                     <option>Pilot/Testing</option>
                     <option>Limited Production</option>
                     <option>Full Production</option>
@@ -279,7 +335,18 @@ export default function AuditWizard() {
                     'Decision Support'
                   ].map((useCase) => (
                     <label key={useCase} className="flex items-center space-x-2">
-                      <input type="checkbox" className="rounded border-border" />
+                      <input 
+                        type="checkbox" 
+                        className="rounded border-border"
+                        checked={responses[2]?.useCases?.includes(useCase) || false}
+                        onChange={(e) => {
+                          const currentUseCases = responses[2]?.useCases || [];
+                          const updatedUseCases = e.target.checked 
+                            ? [...currentUseCases, useCase]
+                            : currentUseCases.filter((u: string) => u !== useCase);
+                          updateResponse(2, 'useCases', updatedUseCases);
+                        }}
+                      />
                       <span className="text-sm">{useCase}</span>
                     </label>
                   ))}
@@ -288,8 +355,12 @@ export default function AuditWizard() {
 
               <div>
                 <label className="block text-sm font-medium mb-2">Shadow AI Detection</label>
-                <select className="w-full p-3 border border-border rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary">
-                  <option>How aware are you of unofficial AI tool usage?</option>
+                <select 
+                  className="w-full p-3 border border-border rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  value={responses[2]?.shadowAI || ''}
+                  onChange={(e) => updateResponse(2, 'shadowAI', e.target.value)}
+                >
+                  <option value="">How aware are you of unofficial AI tool usage?</option>
                   <option>Fully monitored - all usage tracked</option>
                   <option>Partially aware - some detection in place</option>
                   <option>Limited visibility - occasional surveys</option>
@@ -1012,8 +1083,20 @@ export default function AuditWizard() {
                   
                   <Button variant="ghost" size="sm" className="text-muted-foreground">
                     <Save className="w-4 h-4 mr-2" />
-                    Auto-saved
+                    {isAutoSaving ? 'Saving...' : 'Auto-saved'}
                   </Button>
+                  
+                  {selectedText && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowFormAssistant(true)}
+                      className="flex items-center gap-2"
+                    >
+                      <HelpCircle className="w-4 h-4" />
+                      Ask AI about: "{selectedText.substring(0, 20)}..."
+                    </Button>
+                  )}
                 </div>
 
                 <Button
@@ -1048,7 +1131,17 @@ export default function AuditWizard() {
         isOpen={showReportModal}
         onClose={() => setShowReportModal(false)}
         reportContent={reportContent}
-        isGenerating={isGenerating}
+        auditId={auditId}
+      />
+      
+      <FormAssistant
+        isOpen={showFormAssistant}
+        onClose={() => {
+          setShowFormAssistant(false);
+          setSelectedText('');
+        }}
+        selectedText={selectedText}
+        context={`AI Audit Form - Step ${currentStep}: ${steps.find(s => s.id === currentStep)?.title}`}
       />
     </div>
   );

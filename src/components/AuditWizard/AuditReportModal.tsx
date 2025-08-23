@@ -7,6 +7,7 @@ interface AuditReportModalProps {
   onClose: () => void;
   reportContent: string | null;
   isGenerating: boolean;
+  auditId?: string | null;
 }
 
 export function AuditReportModal({ isOpen, onClose, reportContent, isGenerating }: AuditReportModalProps) {
