@@ -2,8 +2,10 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { AuditProgress } from "@/components/AuditWizard/AuditProgress";
-import { ArrowLeft, ArrowRight, Save, CheckCircle, Circle } from "lucide-react";
+import { AuditReportModal } from "@/components/AuditWizard/AuditReportModal";
+import { ArrowLeft, ArrowRight, Save, CheckCircle, Circle, Loader2 } from "lucide-react";
 import { useRequireAuth } from "@/contexts/AuthContext";
+import { useAuditData } from "@/hooks/useAuditData";
 
 const auditSteps = [
   {
@@ -72,6 +74,9 @@ export default function AuditWizard() {
   const { user, loading } = useRequireAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [steps, setSteps] = useState(auditSteps);
+  const { responses, updateResponse, generateReport, isGenerating } = useAuditData();
+  const [reportContent, setReportContent] = useState<string | null>(null);
+  const [showReportModal, setShowReportModal] = useState(false);
 
   if (loading) {
     return (
@@ -85,7 +90,7 @@ export default function AuditWizard() {
     return null; // useRequireAuth will redirect
   }
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (currentStep < auditSteps.length) {
       // Mark current step as completed
       setSteps(prev => 
@@ -96,7 +101,29 @@ export default function AuditWizard() {
         )
       );
       setCurrentStep(currentStep + 1);
+    } else {
+      // Generate audit report on final step
+      setShowReportModal(true);
+      const reportPreferences = getReportPreferences();
+      const content = await generateReport(reportPreferences);
+      if (content) {
+        setReportContent(content);
+      }
     }
+  };
+
+  const getReportPreferences = (): string[] => {
+    // Get selected report preferences from step 10
+    const step10Data = responses[10] || {};
+    const preferences: string[] = [];
+    
+    if (step10Data.executiveSummary) preferences.push('Executive Summary Focus');
+    if (step10Data.technicalDetails) preferences.push('Technical Implementation Details');
+    if (step10Data.complianceReport) preferences.push('Compliance & Risk Assessment');
+    if (step10Data.implementationPlan) preferences.push('Implementation Roadmap');
+    if (step10Data.roiAnalysis) preferences.push('ROI & Business Impact');
+    
+    return preferences;
   };
 
   const handlePrevious = () => {
@@ -122,11 +149,17 @@ export default function AuditWizard() {
                   type="text" 
                   className="w-full p-3 border border-border rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
                   placeholder="Acme Corporation"
+                  value={responses[1]?.companyName || ''}
+                  onChange={(e) => updateResponse(1, 'companyName', e.target.value)}
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-2">Industry</label>
-                <select className="w-full p-3 border border-border rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                <select 
+                  className="w-full p-3 border border-border rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  value={responses[1]?.industry || ''}
+                  onChange={(e) => updateResponse(1, 'industry', e.target.value)}
+                >
                   <option>Select industry...</option>
                   <option>Technology</option>
                   <option>Financial Services</option>
@@ -166,6 +199,8 @@ export default function AuditWizard() {
               <textarea 
                 className="w-full p-3 border border-border rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary h-24"
                 placeholder="Describe your key objectives for AI adoption..."
+                value={responses[1]?.strategicGoals || ''}
+                onChange={(e) => updateResponse(1, 'strategicGoals', e.target.value)}
               />
             </div>
           </div>
@@ -189,7 +224,18 @@ export default function AuditWizard() {
                     'Custom LLM Implementation', 'Other AI Tools'
                   ].map((tool) => (
                     <label key={tool} className="flex items-center space-x-2">
-                      <input type="checkbox" className="rounded border-border" />
+                      <input 
+                        type="checkbox" 
+                        className="rounded border-border" 
+                        checked={responses[2]?.aiTools?.includes(tool) || false}
+                        onChange={(e) => {
+                          const currentTools = responses[2]?.aiTools || [];
+                          const updatedTools = e.target.checked 
+                            ? [...currentTools, tool]
+                            : currentTools.filter((t: string) => t !== tool);
+                          updateResponse(2, 'aiTools', updatedTools);
+                        }}
+                      />
                       <span className="text-sm">{tool}</span>
                     </label>
                   ))}
@@ -199,7 +245,11 @@ export default function AuditWizard() {
               <div className="grid md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium mb-2">Active Users (%)</label>
-                  <select className="w-full p-3 border border-border rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary">
+                  <select 
+                    className="w-full p-3 border border-border rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    value={responses[2]?.activeUsers || ''}
+                    onChange={(e) => updateResponse(2, 'activeUsers', e.target.value)}
+                  >
                     <option>Select percentage...</option>
                     <option>0-10%</option>
                     <option>10-25%</option>
@@ -968,17 +1018,38 @@ export default function AuditWizard() {
 
                 <Button
                   onClick={handleNext}
-                  disabled={currentStep === auditSteps.length}
+                  disabled={isGenerating}
                   className="bg-primary hover:bg-primary-dark"
                 >
-                  {currentStep === auditSteps.length ? "Generate Audit" : "Continue"}
-                  <ArrowRight className="w-4 h-4 ml-2" />
+                  {isGenerating ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Generating...
+                    </>
+                  ) : currentStep === auditSteps.length ? (
+                    <>
+                      Generate Audit
+                      <ArrowRight className="w-4 h-4 ml-2" />
+                    </>
+                  ) : (
+                    <>
+                      Continue
+                      <ArrowRight className="w-4 h-4 ml-2" />
+                    </>
+                  )}
                 </Button>
               </div>
             </Card>
           </div>
         </div>
       </div>
+      
+      <AuditReportModal
+        isOpen={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        reportContent={reportContent}
+        isGenerating={isGenerating}
+      />
     </div>
   );
 }
