@@ -183,3 +183,154 @@
     @apply bg-danger/10 text-danger-foreground border border-danger/20;
   }
 }
+
+/* Print Styles for PDF Generation */
+@media print {
+  /* Page Setup */
+  @page {
+    size: A4;
+    margin: 20mm;
+    
+    @top-right {
+      content: "AI Audit Report";
+      font-size: 10pt;
+      color: #666;
+    }
+    
+    @bottom-center {
+      content: "Page " counter(page) " of " counter(pages);
+      font-size: 10pt;
+      color: #666;
+    }
+  }
+
+  /* Hide non-print elements */
+  .no-print {
+    display: none !important;
+  }
+
+  /* Page breaks */
+  .page-break {
+    break-after: page;
+  }
+
+  .page-break-avoid {
+    break-inside: avoid;
+  }
+
+  /* Body styles */
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    font-size: 12pt;
+    line-height: 1.4;
+    color: #000 !important;
+    background: white !important;
+  }
+
+  /* Typography for print */
+  h1 {
+    font-size: 20pt;
+    font-weight: bold;
+    color: #1a365d !important;
+    page-break-after: avoid;
+    margin-top: 0;
+    margin-bottom: 16pt;
+  }
+
+  h2 {
+    font-size: 16pt;
+    font-weight: 600;
+    color: #2d3748 !important;
+    page-break-after: avoid;
+    margin-top: 20pt;
+    margin-bottom: 12pt;
+    border-bottom: 1pt solid #e2e8f0;
+    padding-bottom: 4pt;
+  }
+
+  h3 {
+    font-size: 14pt;
+    font-weight: 600;
+    color: #4a5568 !important;
+    page-break-after: avoid;
+    margin-top: 16pt;
+    margin-bottom: 8pt;
+  }
+
+  p {
+    margin-bottom: 8pt;
+    orphans: 3;
+    widows: 3;
+  }
+
+  /* Lists */
+  ul, ol {
+    margin-bottom: 12pt;
+    padding-left: 20pt;
+  }
+
+  li {
+    margin-bottom: 4pt;
+    page-break-inside: avoid;
+  }
+
+  /* Tables */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12pt 0;
+    font-size: 10pt;
+  }
+
+  th, td {
+    border: 1pt solid #e2e8f0;
+    padding: 6pt;
+    text-align: left;
+    vertical-align: top;
+  }
+
+  th {
+    background-color: #f7fafc !important;
+    font-weight: 600;
+    color: #2d3748 !important;
+  }
+
+  /* Report specific */
+  .report-container {
+    max-width: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .report-header {
+    text-align: center;
+    margin-bottom: 24pt;
+    padding-bottom: 16pt;
+    border-bottom: 2pt solid #3182ce;
+  }
+
+  .report-header h1 {
+    font-size: 24pt;
+    color: #3182ce !important;
+    margin-bottom: 8pt;
+  }
+
+  .report-footer {
+    margin-top: 32pt;
+    padding-top: 16pt;
+    border-top: 1pt solid #e2e8f0;
+    text-align: center;
+    font-size: 9pt;
+    color: #718096 !important;
+  }
+
+  .prose {
+    max-width: none !important;
+  }
+
+  /* Ensure good contrast */
+  * {
+    color-adjust: exact !important;
+  }
+}

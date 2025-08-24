@@ -8,6 +8,7 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import AuditWizard from "./pages/AuditWizard";
 import AuditChat from "./pages/AuditChat";
+import AuditReport from "./pages/AuditReport";
 import Dashboard from "./pages/Dashboard";
 import NotFound from "./pages/NotFound";
 
@@ -26,6 +27,7 @@ const App = () => (
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/audit/new" element={<AuditWizard />} />
             <Route path="/audit/:auditId/chat" element={<AuditChat />} />
+            <Route path="/report/:auditId" element={<AuditReport />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

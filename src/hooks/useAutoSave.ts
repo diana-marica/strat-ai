@@ -38,16 +38,5 @@ export function useAutoSave(
     }
   }, [data]);
 
-  // Load from localStorage on mount
-  useEffect(() => {
-    const backup = localStorage.getItem('audit-responses-backup');
-    if (backup && Object.keys(data).length === 0) {
-      try {
-        return JSON.parse(backup);
-      } catch (error) {
-        console.error('Failed to load backup data:', error);
-      }
-    }
-    return null;
-  }, []);
+  return { isAutoSaving: hasInitialized.current && Object.keys(data).length > 0 };
 }

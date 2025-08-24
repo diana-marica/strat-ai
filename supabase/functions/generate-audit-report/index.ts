@@ -45,33 +45,49 @@ serve(async (req) => {
     }
 
     // Prepare the prompt for Claude
-    const prompt = `
-You are an expert AI consultant conducting a comprehensive AI readiness audit. Based on the following survey responses, generate a detailed, professional audit report.
+    const prompt = `You are an expert AI consultant conducting a comprehensive AI readiness audit. Based on the following survey responses, generate a detailed, professional audit report.
 
-## Survey Responses:
+Survey Responses:
 ${JSON.stringify(responses, null, 2)}
 
-## Report Preferences:
+Report Preferences:
 ${reportPreferences.length > 0 ? reportPreferences.join(', ') : 'Standard comprehensive report'}
 
-## Instructions:
 Generate a comprehensive AI readiness audit report with the following sections:
 
-1. **Executive Summary** - High-level overview and key recommendations
-2. **Current State Assessment** - Analysis of organization's current AI maturity
-3. **Gap Analysis** - Identification of areas needing improvement
-4. **Risk Assessment** - Potential risks and mitigation strategies
-5. **Strategic Recommendations** - Prioritized action items
-6. **Implementation Roadmap** - 90-day action plan with phases
-7. **ROI Projections** - Expected return on investment
-8. **Technology Requirements** - Infrastructure and tool recommendations
-9. **Skill Development Plan** - Training and hiring recommendations
-10. **Governance Framework** - Policies and procedures needed
+# AI Readiness Audit Report
 
-Make the report professional, actionable, and tailored to the organization's specific responses. Use clear headings, bullet points, and practical recommendations. The tone should be consultative and confident.
+## Executive Summary
+High-level overview and key recommendations
 
-Format the output as clean markdown that can be easily converted to PDF.
-`;
+## Current State Assessment
+Analysis of organization's current AI maturity
+
+## Gap Analysis
+Identification of areas needing improvement
+
+## Risk Assessment
+Potential risks and mitigation strategies
+
+## Strategic Recommendations
+Prioritized action items
+
+## Implementation Roadmap
+90-day action plan with phases
+
+## ROI Projections
+Expected return on investment
+
+## Technology Requirements
+Infrastructure and tool recommendations
+
+## Skill Development Plan
+Training and hiring recommendations
+
+## Governance Framework
+Policies and procedures needed
+
+Make the report professional, actionable, and tailored to the organization's specific responses. Use clear headings, bullet points, and practical recommendations. The tone should be consultative and confident. Format as clean markdown.`;
 
     // Call Claude API
     const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY');
@@ -87,8 +103,8 @@ Format the output as clean markdown that can be easily converted to PDF.
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: 'claude-3-5-sonnet-20241022',
-        max_tokens: 4000,
+        model: 'claude-sonnet-4-20250514',
+        max_completion_tokens: 4000,
         messages: [
           {
             role: 'user',
