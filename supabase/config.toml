@@ -11,3 +11,6 @@ verify_jwt = true
 
 [functions.form-assistant]
 verify_jwt = true
+
+[functions.send-audit-report]
+verify_jwt = true

@@ -8,6 +8,7 @@ import { ArrowLeft, ArrowRight, Save, CheckCircle, Circle, Loader2, HelpCircle }
 import { useRequireAuth } from "@/contexts/AuthContext";
 import { useAuditData } from "@/hooks/useAuditData";
 import { useAutoSave } from "@/hooks/useAutoSave";
+import { useAutoSaveWithRestore } from "@/hooks/useAutoSaveWithRestore";
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -83,15 +84,13 @@ export default function AuditWizard() {
   const [showReportModal, setShowReportModal] = useState(false);
   const [showFormAssistant, setShowFormAssistant] = useState(false);
   const [selectedText, setSelectedText] = useState<string>('');
-  const [isAutoSaving, setIsAutoSaving] = useState(false);
-
-  // Auto-save functionality
-  const saveAuditData = async (data: any) => {
+  const { restoredData, hasLoaded, clearBackup } = useAutoSaveWithRestore();
+  
+  // Auto-save status
+  const { isAutoSaving } = useAutoSave(responses, async (data) => {
     if (!user || Object.keys(data).length === 0) return;
     
-    setIsAutoSaving(true);
     try {
-      // Create or update audit draft
       if (auditId) {
         const { error } = await supabase
           .from('audits')
@@ -110,12 +109,33 @@ export default function AuditWizard() {
       }
     } catch (error) {
       console.error('Auto-save failed:', error);
-    } finally {
-      setIsAutoSaving(false);
     }
-  };
+  }, 3000);
 
-  useAutoSave(responses, saveAuditData, 3000);
+  // Data restoration effect
+  useEffect(() => {
+    if (hasLoaded && restoredData && Object.keys(responses).length === 0) {
+      // Show restoration prompt
+      const shouldRestore = window.confirm(
+        'We found some unsaved audit data. Would you like to restore it?'
+      );
+      
+      if (shouldRestore) {
+        // Restore the data by updating each response
+        Object.keys(restoredData).forEach(stepId => {
+          Object.keys(restoredData[stepId]).forEach(fieldName => {
+            updateResponse(parseInt(stepId), fieldName, restoredData[stepId][fieldName]);
+          });
+        });
+        
+        toast('Your previous responses have been restored!', { 
+          description: 'You can continue where you left off.' 
+        });
+      }
+      
+      clearBackup();
+    }
+  }, [hasLoaded, restoredData, responses, updateResponse, clearBackup]);
 
   // Handle text selection for AI assistant
   useEffect(() => {

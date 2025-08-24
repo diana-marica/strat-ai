@@ -1,6 +1,10 @@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Download, Mail } from "lucide-react";
+import { Download, Mail, Eye } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useState } from "react";
 
 interface AuditReportModalProps {
   isOpen: boolean;
@@ -10,19 +14,60 @@ interface AuditReportModalProps {
   auditId?: string | null;
 }
 
-export function AuditReportModal({ isOpen, onClose, reportContent, isGenerating }: AuditReportModalProps) {
-  const downloadReport = () => {
-    if (!reportContent) return;
+export function AuditReportModal({ isOpen, onClose, reportContent, isGenerating, auditId }: AuditReportModalProps) {
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const [isEmailing, setIsEmailing] = useState(false);
+
+  const handleViewReport = () => {
+    if (auditId) {
+      navigate(`/report/${auditId}`);
+    }
+  };
+
+  const handleDownloadPDF = () => {
+    if (auditId) {
+      // Open in new tab and trigger print
+      const reportUrl = `/report/${auditId}`;
+      const newWindow = window.open(reportUrl, '_blank');
+      if (newWindow) {
+        newWindow.onload = () => {
+          setTimeout(() => {
+            newWindow.print();
+          }, 1000);
+        };
+      }
+    }
+  };
+
+  const handleEmailReport = async () => {
+    if (!auditId || !reportContent) return;
     
-    const blob = new Blob([reportContent], { type: 'text/markdown' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `ai-audit-report-${new Date().toISOString().split('T')[0]}.md`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    setIsEmailing(true);
+    try {
+      const { error } = await supabase.functions.invoke('send-audit-report', {
+        body: {
+          auditId,
+          reportContent,
+        }
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Email sent!",
+        description: "The audit report has been sent to your email.",
+      });
+    } catch (error) {
+      console.error('Error sending email:', error);
+      toast({
+        title: "Failed to send email",
+        description: "There was an error sending the report. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsEmailing(false);
+    }
   };
 
   return (
@@ -50,19 +95,34 @@ export function AuditReportModal({ isOpen, onClose, reportContent, isGenerating 
           </div>
         ) : reportContent ? (
           <div className="flex flex-col h-full">
-            <div className="flex gap-2 mb-4">
-              <Button onClick={downloadReport} className="flex items-center gap-2">
-                <Download className="w-4 h-4" />
-                Download Report
+            <div className="flex gap-2 mb-4 flex-wrap">
+              <Button onClick={handleViewReport} className="flex items-center gap-2">
+                <Eye className="w-4 h-4" />
+                View Report
               </Button>
-              <Button variant="outline" className="flex items-center gap-2">
+              <Button onClick={handleDownloadPDF} variant="outline" className="flex items-center gap-2">
+                <Download className="w-4 h-4" />
+                Download PDF
+              </Button>
+              <Button 
+                onClick={handleEmailReport} 
+                variant="outline" 
+                className="flex items-center gap-2"
+                disabled={isEmailing}
+              >
                 <Mail className="w-4 h-4" />
-                Email Report
+                {isEmailing ? 'Sending...' : 'Email Report'}
               </Button>
             </div>
             
             <div className="flex-1 overflow-auto border rounded-lg p-4 bg-muted/30">
-              <pre className="whitespace-pre-wrap text-sm">{reportContent}</pre>
+              <div className="prose prose-sm max-w-none">
+                <div 
+                  dangerouslySetInnerHTML={{ 
+                    __html: reportContent.replace(/\n/g, '<br/>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') 
+                  }} 
+                />
+              </div>
             </div>
           </div>
         ) : (

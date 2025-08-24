@@ -64,34 +64,23 @@ export default function Dashboard() {
   };
 
   const downloadReport = async (audit: Audit) => {
-    if (!audit.report_url && !audit.report_content) {
+    if (!audit.report_content) {
       toast.error('No report available for download');
       return;
     }
 
     try {
-      if (audit.report_url) {
-        // Download PDF if available
-        window.open(audit.report_url, '_blank');
-      } else if (audit.report_content) {
-        // Generate PDF from markdown content
-        const { data, error } = await supabase.functions.invoke('generate-pdf-report', {
-          body: {
-            auditId: audit.id,
-            reportContent: audit.report_content,
-            title: audit.title
-          }
-        });
-
-        if (error) throw error;
-        
-        if (data.pdfUrl) {
-          window.open(data.pdfUrl, '_blank');
-          // Refresh audit data to update with PDF URL
-          loadAudits();
-        }
+      // Use the new browser-based PDF generation
+      const reportUrl = `/report/${audit.id}`;
+      const newWindow = window.open(reportUrl, '_blank');
+      if (newWindow) {
+        newWindow.onload = () => {
+          setTimeout(() => {
+            newWindow.print();
+          }, 1000);
+        };
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error downloading report:', error);
       toast.error('Failed to download report');
     }
