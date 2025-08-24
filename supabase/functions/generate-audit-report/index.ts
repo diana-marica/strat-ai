@@ -17,6 +17,20 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Parse request body once and store it
+  let requestBody: AuditRequest;
+  try {
+    requestBody = await req.json();
+  } catch (error) {
+    console.error('Failed to parse request body:', error);
+    return new Response(JSON.stringify({ error: 'Invalid request body' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const { auditId, responses, reportPreferences = [] } = requestBody;
+
   try {
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -27,8 +41,6 @@ serve(async (req) => {
         },
       }
     );
-
-    const { auditId, responses, reportPreferences = [] }: AuditRequest = await req.json();
     
     console.log('Processing audit report generation for:', auditId);
 
@@ -103,8 +115,8 @@ Make the report professional, actionable, and tailored to the organization's spe
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_completion_tokens: 4000,
+        model: 'claude-3-5-sonnet-20241022',
+        max_tokens: 4000,
         messages: [
           {
             role: 'user',
@@ -115,9 +127,10 @@ Make the report professional, actionable, and tailored to the organization's spe
     });
 
     if (!claudeResponse.ok) {
-      const error = await claudeResponse.text();
-      console.error('Claude API error:', error);
-      throw new Error(`Claude API error: ${claudeResponse.status}`);
+      const errorText = await claudeResponse.text();
+      console.error('Claude API error status:', claudeResponse.status);
+      console.error('Claude API error response:', errorText);
+      throw new Error(`Claude API error: ${claudeResponse.status} - ${errorText}`);
     }
 
     const claudeData = await claudeResponse.json();
@@ -157,18 +170,23 @@ Make the report professional, actionable, and tailored to the organization's spe
   } catch (error) {
     console.error('Error in generate-audit-report function:', error);
     
-    // Update audit status to failed if auditId exists
+    // Update audit status to failed using the already parsed auditId
     try {
-      const { auditId } = await req.json();
       if (auditId) {
         const supabaseClient = createClient(
           Deno.env.get('SUPABASE_URL') ?? '',
-          Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+          Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+          {
+            global: {
+              headers: { Authorization: req.headers.get('Authorization')! },
+            },
+          }
         );
         await supabaseClient
           .from('audits')
           .update({ status: 'failed' })
           .eq('id', auditId);
+        console.log('Updated audit status to failed for:', auditId);
       }
     } catch (e) {
       console.error('Failed to update audit status to failed:', e);
