@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useDebounce } from './useDebounce';
 
 interface AuditData {
@@ -10,10 +10,12 @@ interface AuditData {
 export function useAutoSave(
   data: AuditData, 
   saveFunction: (data: AuditData) => Promise<void>,
-  delay: number = 2000
+  delay: number = 5000
 ) {
   const debouncedData = useDebounce(data, delay);
   const hasInitialized = useRef(false);
+  const lastSavedData = useRef<string>('');
+  const [isAutoSaving, setIsAutoSaving] = useState(false);
 
   useEffect(() => {
     // Don't auto-save on initial load
@@ -27,9 +29,32 @@ export function useAutoSave(
       return;
     }
 
-    console.log('Auto-saving audit data...');
-    saveFunction(debouncedData).catch(console.error);
-  }, [debouncedData, saveFunction]);
+    // Don't save if data hasn't changed
+    const currentDataString = JSON.stringify(debouncedData);
+    if (currentDataString === lastSavedData.current) {
+      return;
+    }
+
+    // Don't save if already saving
+    if (isAutoSaving) {
+      return;
+    }
+
+    const performSave = async () => {
+      setIsAutoSaving(true);
+      try {
+        console.log('Auto-saving audit data...');
+        await saveFunction(debouncedData);
+        lastSavedData.current = currentDataString;
+      } catch (error) {
+        console.error('Auto-save failed:', error);
+      } finally {
+        setIsAutoSaving(false);
+      }
+    };
+
+    performSave();
+  }, [debouncedData, saveFunction, isAutoSaving]);
 
   // Save to localStorage as backup
   useEffect(() => {
@@ -38,5 +63,7 @@ export function useAutoSave(
     }
   }, [data]);
 
-  return { isAutoSaving: hasInitialized.current && Object.keys(data).length > 0 };
+  return { 
+    isAutoSaving: isAutoSaving && hasInitialized.current && Object.keys(data).length > 0 
+  };
 }

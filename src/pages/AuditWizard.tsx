@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { AuditProgress } from "@/components/AuditWizard/AuditProgress";
 import { AuditReportModal } from "@/components/AuditWizard/AuditReportModal";
 import { FormAssistant } from "@/components/AuditWizard/FormAssistant";
+import { AutoSaveStatus } from "@/components/AuditWizard/AutoSaveStatus";
 import { ArrowLeft, ArrowRight, Save, CheckCircle, Circle, Loader2, HelpCircle } from "lucide-react";
 import { useRequireAuth } from "@/contexts/AuthContext";
 import { useAuditData } from "@/hooks/useAuditData";
@@ -79,7 +80,7 @@ export default function AuditWizard() {
   const { user, loading } = useRequireAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [steps, setSteps] = useState(auditSteps);
-  const { responses, updateResponse, generateReport, isGenerating, auditId } = useAuditData();
+  const { responses, updateResponse, generateReport, isGenerating, auditId, createOrUpdateAudit } = useAuditData();
   const [reportContent, setReportContent] = useState<string | null>(null);
   const [showReportModal, setShowReportModal] = useState(false);
   const [showFormAssistant, setShowFormAssistant] = useState(false);
@@ -91,31 +92,16 @@ export default function AuditWizard() {
     if (!user || Object.keys(data).length === 0) return;
     
     try {
-      if (auditId) {
-        const { error } = await supabase
-          .from('audits')
-          .update({ responses: data, updated_at: new Date().toISOString() })
-          .eq('id', auditId);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from('audits')
-          .insert({
-            user_id: user.id,
-            responses: data,
-            status: 'draft'
-          });
-        if (error) throw error;
-      }
+      await createOrUpdateAudit(data);
     } catch (error) {
       console.error('Auto-save failed:', error);
     }
-  }, 3000);
+  }, 5000);
 
   // Data restoration effect
   useEffect(() => {
-    if (hasLoaded && restoredData && Object.keys(responses).length === 0) {
-      // Show restoration prompt
+    if (hasLoaded && restoredData && Object.keys(responses).length === 0 && !auditId) {
+      // Show restoration prompt only if no existing audit was found
       const shouldRestore = window.confirm(
         'We found some unsaved audit data. Would you like to restore it?'
       );
@@ -135,7 +121,7 @@ export default function AuditWizard() {
       
       clearBackup();
     }
-  }, [hasLoaded, restoredData, responses, updateResponse, clearBackup]);
+  }, [hasLoaded, restoredData, responses, updateResponse, clearBackup, auditId]);
 
   // Handle text selection for AI assistant
   useEffect(() => {
@@ -1101,10 +1087,7 @@ export default function AuditWizard() {
                     Previous
                   </Button>
                   
-                  <Button variant="ghost" size="sm" className="text-muted-foreground">
-                    <Save className="w-4 h-4 mr-2" />
-                    {isAutoSaving ? 'Saving...' : 'Auto-saved'}
-                  </Button>
+                  <AutoSaveStatus isAutoSaving={isAutoSaving} auditId={auditId} />
                   
                   {selectedText && (
                     <Button
